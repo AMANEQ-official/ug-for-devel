@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <meta name="author" content="Ryotaro Honda">
+        
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>NestDAQ protocol - AMANEQ UG for developers</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/font-awesome.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css">
+        <link href="../../css/custom.css" rel="stylesheet">
+
+        <script src="../../js/jquery-1.10.2.min.js" defer></script>
+        <script src="../../js/bootstrap.min.js" defer></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">AMANEQ UG for developers</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="navitem">
+                                <a href="../.." class="nav-link">Top</a>
+                            </li>
+                            <li class="navitem">
+                                <a href="../../mikumari/main/" class="nav-link">Mikumari</a>
+                            </li>
+                            <li class="navitem active">
+                                <a href="./" class="nav-link">NestDAQ protocol</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ml-auto">
+                            <li class="nav-item">
+                                <a rel="prev" href="../../mikumari/main/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" class="nav-link disabled">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-light navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-secondary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-level="1"><a href="#nestdaq-protocol" class="nav-link">NestDAQ protocol</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-level="2"><a href="#pulse-and-command-definition" class="nav-link">Pulse and Command definition</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#relation-between-streaming-tdc-an-nestdaq-protocol" class="nav-link">Relation between streaming TDC an NestDAQ protocol</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#application-in-j-parc-hadron-experiments" class="nav-link">Application in J-PARC hadron experiments</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#ndpmaster" class="nav-link">NdpMaster</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#ndpslave" class="nav-link">NdpSlave</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#fan-out" class="nav-link">Fan-out</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-level="2"><a href="#example-design" class="nav-link">Example design</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="nestdaq-protocol">NestDAQ protocol</h1>
+<p>NestDAQ protocol is an upper layer protocol to distribute the timing pulses and the command to the front-end electronics and to gather status information from FEEs. This protocol is designed for applications in the J-PARC hadron experiments where the DC beams is delivered by the slow extraction method. In addition, it is also expected that the <a href="https://github.com/spadi-alliance/nestdaq">NestDAQ</a> framework is used for the data acquisition software.</p>
+<p>As the NestDAQ protocol is still dedicated to the point-to-point data communication, the routing function  is not supported. The <a href="#NDP-OV">figure</a> represents the overview of the NestDAQ protocol. The data structure is asymmetric between downward and upward data path. In the downward data path, the 8-bit commands are sent together with 32-bit register values from the master side as the payload of the MIKUMARI frame. In addition, the pulse transmission is supported. In the upward direction, 8-bit status flags are sent back from the slave side. This is also realized by the MIKUMARI frame. As explained in the MIKUMARI section, there is the CBT character transfer cycle and the transmission priority among character types behind the command transmission, and then there is a range of latency from when the transfer request is issued until the data arrives. Thus, the commands are used for the semi-synchronous operation. The status flag update has also a range of latency.</p>
+<figure id="_caption-1">
+<img alt="NDP-OV" id="NDP-OV" src="../ndp-overview.png" title="Overview of NestDAQ protocol." width="90%" />
+<figcaption><span>Figure&nbsp;1:</span> Overview of NestDAQ protocol.</figcaption>
+</figure>
+<h2 id="pulse-and-command-definition">Pulse and Command definition</h2>
+<h3 id="pulse-definition">Pulse definition</h3>
+<p>Currently, 6 types of pulses are defined in the NestDAQ protocol.</p>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-30">Pulse Type</span></th>
+    <th class="nowrap"><span class="mgr-10">Index</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr>
+    <td class="tcenter">HardReset</td>
+    <td class="tcenter">0</td>
+    <td>Transfer the hardware reset pulse. The author expect that this signal is for emergency use. The front-end module should be reset by the reset signal generated by the local bus controller through the data link (SiTCP). It is not expected use this signal in the normal operation. Users may assert this signal when the data link is hang up.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">HbCounterReset</td>
+    <td class="tcenter">1</td>
+    <td>Heartbeat counter reset. Use this signal to set the local heartbeat counter value 0. It works to synchronize the heartbeat frame. The author expects that the local heartbeat frame number should also be set to 0 by this signal.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">GateStart</td>
+    <td class="tcenter">2</td>
+    <td>It provides the data acquisition gate ON timing. During gate ON, the data are streaming in the TDC and go to the PC through the data link.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">GateEnd</td>
+    <td class="tcenter">3</td>
+    <td>It provides the data acquisition gate OFF timing. By de-asserting the gate signal, the data flow in the TDC is stopped.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">VetoStart</td>
+    <td class="tcenter">4</td>
+    <td>It provides the VETO start timing. If the VETO signal is ON, the data flow in the TDC is stopped even if the gate is ON. This signal is used to stop the TDC data generation without turing off the data acquisition gate.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">VetoEnd</td>
+    <td class="tcenter">5</td>
+    <td>It provides the VETO end timing.</td>
+  </tr>
+</tbody>
+</table>
+
+<h3 id="command-definition">Command definition</h3>
+<p>Currently, 4 type commands are defined.</p>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-30">Command</span></th>
+    <th class="nowrap"><span class="mgr-10">Index</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr>
+    <td class="tcenter">RunStart</td>
+    <td class="tcenter">0</td>
+    <td>Change the run status from IDLE to RUN.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">RunEnd</td>
+    <td class="tcenter">1</td>
+    <td>Change the run status from RUN to IDLE.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">HbFrameNum</td>
+    <td class="tcenter">2</td>
+    <td>Global heartbeat frame number update. If the command is HbFrameNum, it indicates that the following register value is the global heartbeat frame number.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">GateNum</td>
+    <td class="tcenter">3</td>
+    <td>Gate number update. If the command is GateNum, it indicates that the following register value is the the gate number.</td>
+  </tr>
+</tbody>
+</table>
+
+<h3 id="register-definition">Register definition</h3>
+<p>The command transmission in the downward direction, the command accompanies the 32-bit register value. What the received register indicates is determined by checking the received command. Currently, two types of register values exists.</p>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-30">Register</span></th>
+    <th class="nowrap"><span class="mgr-10">Width</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr>
+    <td class="tcenter">Heartbeat frame number</td>
+    <td class="tcenter">16</td>
+    <td>Global heartbeat frame number.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">Gate number</td>
+    <td class="tcenter">8</td>
+    <td>Global gate number</td>
+  </tr>
+</tbody>
+</table>
+
+<h3 id="status-flag-definition">Status flag definition</h3>
+<p>In the upward direction, 8-bit status flags are returned from FEEs. Current definition of the 8-bit flag is as follows.</p>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-30">Flag</span></th>
+    <th class="nowrap"><span class="mgr-10">Index</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr>
+    <td class="tcenter">ModBusy</td>
+    <td class="tcenter">0</td>
+    <td>Set to high when the streaming TDC is under the busy mode.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">ModReady</td>
+    <td class="tcenter">1</td>
+    <td>Set to high when the module is ready to start data acquisition.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">DLkinStatus</td>
+    <td class="tcenter">2</td>
+    <td>Set to high when the TCP connection is established.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">SEUStatus</td>
+    <td class="tcenter">3</td>
+    <td>Set to high when the unrecoverable SEU error is detected.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">TimeFrameSlip</td>
+    <td class="tcenter">4</td>
+    <td>Set to high if the local and global heartbeat frame numbers are miss matched at the timing of the delimiter word insertion timing.</td>
+  </tr>
+  <tr>
+    <td class="tcenter">NotInUse1</td>
+    <td class="tcenter">5</td>
+    <td>Not in use</td>
+  </tr>
+  <tr>
+    <td class="tcenter">NotInUse2</td>
+    <td class="tcenter">6</td>
+    <td>Not in use</td>
+  </tr>
+  <tr>
+    <td class="tcenter">NotInUse3</td>
+    <td class="tcenter">7</td>
+    <td>Not in use</td>
+  </tr>
+</tbody>
+</table>
+
+<h2 id="relation-between-streaming-tdc-an-nestdaq-protocol">Relation between streaming TDC an NestDAQ protocol</h2>
+<p>The NestDAQ protocol (NDP) has a role to control the streaming TDC on the FEE. Here, the author describes the relation between behavior of the streaming TDC and the NDP. The data acquisition condition for the streaming TDC is defined as shown in the <a href="#GATE-TC">figure</a>. The acquisition condition is defined by the run status, the gate signal, and the veto signal. The streaming can work and generate the TDC data when the run status is <em>RUN</em>, the gate signal is high, and the veto signal is low. The NDP master module set the run status to <em>RUN</em>, if the DAQ run start is requested by the PC and all FEEs return ModReady high. The streaming TDC does not work under the <em>IDLE</em> status even if the gate signal is low. After setting the run status <em>RUN</em>, the master module sends the GateStart pulse to open the gate. Thus, the streaming TDC starts working. The data generation can be temporally stopped by the veto signal.</p>
+<figure id="_caption-2">
+<img alt="GATE-TC" id="GATE-TC" src="../gate-tc.png" title="Data acquisition condition for streaming TDC. Blue and red objects represent the command and the pulse, respectively." width="90%" />
+<figcaption><span>Figure&nbsp;2:</span> Data acquisition condition for streaming TDC. Blue and red objects represent the command and the pulse, respectively.</figcaption>
+</figure>
+<p>The time chart for the heartbeat related things is represented in the figure. The HbCounterReset pulse resets the local heartbeat counter and the local heartbeat frame number. The local heartbeat frame number is internally incremented at the heartbeat timing in each FEE. The global (NDP) frame number is updated after the heartbeat. These two number must be the same and at the heartbeat timing. The streaming TDC checks the sameness of two frame numbers, and if they are different, the FEE sets the TimeFrameSlip flag ON and sets  the slip flag in the delimiter word of the streaming TDC.</p>
+<p>The author expects that this signal is sent before opening the gate. As the gate number is inserted into the delimiter word, the gate number should be updated before sending the GateStart pulse.</p>
+<figure id="_caption-3">
+<img alt="HB-TC" id="HB-TC" src="../hb-tc.png" title="Time chart for heartbeat information. Blue and red objects represent the command and the pulse, respectively." width="90%" />
+<figcaption><span>Figure&nbsp;3:</span> Time chart for heartbeat information. Blue and red objects represent the command and the pulse, respectively.</figcaption>
+</figure>
+<h2 id="application-in-j-parc-hadron-experiments">Application in J-PARC hadron experiments</h2>
+<p>The author expects that the P3 signal from the MR is used as the HbCounterReset pulse. The P3 signal represents the flat-top start timing and is the important reference timing determined by the accelerator in the slow extraction method.</p>
+<p>The gate signal corresponds to the spill gate in the J-PARC hadron experiments. The extraction starts several hundred ms after the P3 signal. The opening timing of the spill gate is user defined. It defines when the data acquisition starts during the slow extraction. The author expects that the GateStart pulse is generated as the delayed pulse of the P3 signal. The closing timing of the spill gate is also user defined.</p>
+<h2 id="ndpmaster">NdpMaster</h2>
+<p>The NdpMaster is the command and pulse sender in the MIKUMARI system. It is implemented in the master module, and if there is a distributer module, it is instantiated as the command and pulse sender to each FEE. The entity port structure is as follows.</p>
+<pre><code class="language-VHDL">entity NdpMaster is
+  port
+  (
+    -- system --
+    rst             : in std_logic;
+    clkPar          : in std_logic;
+    linkUpIn        : in std_logic;
+
+    busyPulseSend   : out std_logic;
+    busyCommandSend : out std_logic;
+
+    -- Pulse input --
+    ndpPulseIn      : in NdpPulseType;
+    pulseError      : out std_logic;
+
+    -- Command input --
+    ndpCommandIn    : in NdpCommandType;
+    commandError    : out std_logic;
+
+    hbNumber        : in HbNumberType;
+    gateNumber      : in GateNumberType;
+
+    -- Slave flag output --
+    ndpFlagOut      : out NdpFlagType;
+
+
+    -- MIKUMARI IF --
+    dataOutTx       : out CbtUDataType;
+    validOutTx      : out std_logic;
+    frameLastOutTx  : out std_logic;
+    txAck           : in std_logic;
+
+    pulseOut        : out std_logic;
+    pulseTypeOut    : out MikumariPulseType;
+    busyPulseTx     : in std_logic;
+
+    dataInRx        : in CbtUDataType;
+    validInRx       : in std_logic;
+    frameLastRx     : in std_logic
+
+  );
+end NdpMaster;
+</code></pre>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-10">Port </span></th>
+    <th class="nowrap"><span class="mgr-10">In/Out</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr><td class="tcenter" colspan=4><b>IO port</b></td></tr>
+  <tr>
+    <td>rst</td>
+    <td class="tcenter">In</td>
+    <td>Asynchronous reset. (active high) </td>
+  </tr>
+  <tr>
+    <td>clkPar</td>
+    <td class="tcenter">In</td>
+    <td>Parallel clock input.</td>
+  </tr>
+  <tr>
+    <td>linkUpIn</td>
+    <td class="tcenter">In</td>
+    <td>Input linkUp signal from the MIKUMARI link.</td>
+  </tr>
+  <tr>
+    <td>busyPulseSend</td>
+    <td class="tcenter">Out</td>
+    <td>The next pulse transmission request is ignored while this signal is high.</td>
+  </tr>
+  <tr>
+    <td>busyCommandSend</td>
+    <td class="tcenter">Out</td>
+    <td>The next command transmission request is ignored while this signal is high.</td>
+  </tr>
+  <tr>
+    <td>ndpPulseIn</td>
+    <td class="tcenter">In</td>
+    <td>Pulse transmission request. This is the std_logic_vector whose length is the number of pulse types. To send the pulse, set 1 to the bit corresponding to the target pulse type. Do not set more than 2-bits to 1. The MIKUMARI pulse transmission function can send only a pulse type at the same time. The request signal width must  be one-shot.</td>
+  </tr>
+  <tr>
+    <td>pulseError</td>
+    <td class="tcenter">Out</td>
+    <td>This goes high if the user requests to send more than two types of pulses at the same time.</td>
+  </tr>
+  <tr>
+    <td>ndpCommandIn</td>
+    <td class="tcenter">In</td>
+    <td>Command transmission request. This is the std_logic_vector whose length is the number of commands. To send the command, set 1 to the bit corresponding to the target command type. Do not set more than 2-bits to 1. The values on hbNumber and gateNumber ports are latched when any of the bits in ndpCommandIn is set to 1.</td>
+  </tr>
+  <tr>
+    <td>commandError</td>
+    <td class="tcenter">Out</td>
+    <td>This goes high if the user requests to send more than two types of commands at the same time.</td>
+  </tr>
+  <tr>
+    <td>hbNumber</td>
+    <td class="tcenter">In</td>
+    <td>16-bit heartbeat frame number input. It is latched when any of the bits of ndpCommandIn is set to 1.</td>
+  </tr>
+  <tr>
+    <td>gateNumber</td>
+    <td class="tcenter">In</td>
+    <td>8-bit gate number input. It is latched when any of the bits of ndpCommandIn is set to 1.</td>
+  </tr>
+  <tr>
+    <td>ndpFlagOut</td>
+    <td class="tcenter">Out</td>
+    <td>NDP flag output. This is the std_logic_vector whose length is the number of flags. The bits are flipped when the flag information is updated by the slave side.</td>
+  </tr>
+  <tr>
+    <td>dataOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to dataInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>validOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to validInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>frameLastOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to frameLastInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>txAck</td>
+    <td class="tcenter">In</td>
+    <td>Connect to txAck in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>pulseOut</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to pulseIn in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>pulseTypeOut</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to pulseTypeIn in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>busyPulseTx</td>
+    <td class="tcenter">In</td>
+    <td>Connect to busyPulseTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>dataInRx</td>
+    <td class="tcenter">In</td>
+    <td>Connect to dataOutRx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>validRxIn</td>
+    <td class="tcenter">In</td>
+    <td>Connect to validOutRx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>frameLastRx</td>
+    <td class="tcenter">In</td>
+    <td>Connect to frameLastOutRx in the MikumariLane.</td>
+  </tr>
+</tbody>
+</table>
+
+<p>The NdpMaster hides the txAck cycle of the MIKUMARI link. The pulse/command transmissions are managed by the busy signals trigger by the transmission request. The pulse and command transmissions are requested by setting 1 to the bit in ndpPulseIn and ndpCommandIn, respectively. For example, the HbCounterReset index is 1, and then the pulse transmission with the HbCounterReset is requested by setting the ndpPulseIn vector as <code>0b00_0010</code>, like <code>ndpPulseIn(kHbCounterReset) &lt;= '1'</code>. <strong>The request signal width must be one-shot.</strong> If the request is accepted, the busy signal goes high. When the busy signal is high, the next request is ignored. This is the same for the command, but the values on hbNumber and gateNumber are latched at the command request timing.</p>
+<p>ndpFlatOut is the flag vector indicating the status of the slave module. There is no valid signal for this status flags. If the slave module updates the flag, it goes to the master module and appears from this port.</p>
+<h2 id="ndpslave">NdpSlave</h2>
+<p>The NdpSlave is the command and pulse receiver in the MIKUMARI system. It is implemented in the slave module, and if there is a distributer module, it is instantiated as the command and pulse receiver from the master module. The entity port structure is as follows.</p>
+<pre><code class="language-VHDL">entity NdpSlave is
+  port
+  (
+    -- system --
+    rst             : in std_logic;
+    clkPar          : in std_logic;
+    linkUpIn        : in std_logic;
+
+    -- Pulse output --
+    ndpPulseOut     : out NdpPulseType;
+    pulseError      : out std_logic;
+
+    -- Command output --
+    ndpCommandOut   : out NdpCommandType;
+    commandError    : out std_logic;
+
+    hbNumber        : out HbNumberType;
+    gateNumber      : out GateNumberType;
+
+    -- Slave flag input --
+    ndpFlagIn       : in NdpFlagType;
+
+    -- MIKUMARI IF --
+    dataOutTx       : out CbtUDataType;
+    validOutTx      : out std_logic;
+    frameLastOutTx  : out std_logic;
+    txAck           : in std_logic;
+
+    dataInRx        : in CbtUDataType;
+    validInRx       : in std_logic;
+    frameLastInRx   : in std_logic;
+    checksumErr     : in std_logic;
+
+    pulseIn         : in std_logic;         -- Reproduced one-shot pulse output.
+    pulseTypeRx     : in MikumariPulseType  -- Short massange accompanying the pulse.
+
+  );
+end NdpSlave;
+</code></pre>
+<table class="vmgr-table">
+  <thead><tr>
+    <th class="nowrap"><span class="mgr-10">Port </span></th>
+    <th class="nowrap"><span class="mgr-10">In/Out</span></th>
+    <th class="nowrap"><span class="mgr-10">Comment</span></th>
+  </tr></thead>
+  <tbody>
+  <tr><td class="tcenter" colspan=4><b>IO port</b></td></tr>
+  <tr>
+    <td>rst</td>
+    <td class="tcenter">In</td>
+    <td>Asynchronous reset. (active high) </td>
+  </tr>
+  <tr>
+    <td>clkPar</td>
+    <td class="tcenter">In</td>
+    <td>Parallel clock input.</td>
+  </tr>
+  <tr>
+    <td>linkUpIn</td>
+    <td class="tcenter">In</td>
+    <td>Input linkUp signal from the MIKUMARI link.</td>
+  </tr>
+  <tr>
+    <td>ndpPulseOut</td>
+    <td class="tcenter">Out</td>
+    <td>One-shot pulse output vector.</td>
+  </tr>
+  <tr>
+    <td>pulseError</td>
+    <td class="tcenter">Out</td>
+    <td>It indicates that the master module tries to send more two pulse types at the same time.</td>
+  </tr>
+  <tr>
+    <td>ndpCommandOut</td>
+    <td class="tcenter">Out</td>
+    <td>Command output vector.</td>
+  </tr>
+  <tr>
+    <td>commandError</td>
+    <td class="tcenter">Out</td>
+    <td>It indicates that the master module tries to send more two commands at the same time.</td>
+  </tr>
+  <tr>
+    <td>hbNumber</td>
+    <td class="tcenter">Out</td>
+    <td>16-bit heartbeat frame number output. The value is updated when the HbFrameNum command is received.</td>
+  </tr>
+  <tr>
+    <td>gateNumber</td>
+    <td class="tcenter">Out</td>
+    <td>8-bit gate number output. The value is updated when the GateNum command is received.</td>
+  </tr>
+  <tr>
+    <td>ndpFlagIn</td>
+    <td class="tcenter">In</td>
+    <td>NDP flag input. </td>
+  </tr>
+  <tr>
+    <td>dataOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to dataInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>validOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to validInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>frameLastOutTx</td>
+    <td class="tcenter">Out</td>
+    <td>Connect to frameLastInTx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>txAck</td>
+    <td class="tcenter">In</td>
+    <td>Connect to txAck in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>dataInRx</td>
+    <td class="tcenter">In</td>
+    <td>Connect to dataOutRx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>validRxIn</td>
+    <td class="tcenter">In</td>
+    <td>Connect to validOutRx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>frameLastRx</td>
+    <td class="tcenter">In</td>
+    <td>Connect to frameLastOutRx in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>checksumErr</td>
+    <td class="tcenter">In</td>
+    <td>Connect to checksumErr in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>pulseIn</td>
+    <td class="tcenter">In</td>
+    <td>Connect to pulseOut in the MikumariLane.</td>
+  </tr>
+  <tr>
+    <td>pulseTypeIn</td>
+    <td class="tcenter">In</td>
+    <td>Connect to pulseTypeOut in the MikumariLane.</td>
+  </tr>
+</tbody>
+</table>
+
+<p>The received pulse and command appear from ndpPulseOut and ndpCommandOut. For example, if the pulse with the HbCounterReset type is received, the 2nd bit of the ndpPulseOut goes high. This is the same for the command. In addition, hbNumber and gateNumber are also updated for HbFrameNum and GateNum commands, respectively. If errorPulse and errorCommand is high, it indicates that the master module tries to send more than two types of pulses and commands, respectively.</p>
+<p>The status flag vector is connected to the ndpFlagIn port. If status flag bit pattern is changed, the frame transmission is automatically generated by NdpSlave.</p>
+<h2 id="fan-out">Fan-out</h2>
+<p>Since the CBT character transfer cycle is hidden by the NestDAQ protocol, the NDP master and slave modules can be directly connected. <strong>Note that this is not confirmed yet and is just my expectation.</strong> Therefore, for fan-out, the NDP slave module can directly drive multiple NDP master modules in the intermediate (fan-oute) module.</p>
+<h2 id="example-design">Example design</h2>
+<h3 id="ndp-masterndp-slave">ndp-master/ndp-slave</h3>
+<p>The path to the example designs projects. The firmware structure is similar to those of mikumari-crv-master (slave). The NdpMaster and NdpSlave are instantiated instead of 8-bit incremental data generator.</p>
+<ul>
+<li>AMANEQ-official/example-design/mikumari/ndp-crv-master</li>
+<li>AMANEQ-official/example-design/mikumari/ndp-crv-slave</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+                <p>Open-It AMANEQ project</p>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js" defer></script>
+
+        <div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
